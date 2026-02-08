@@ -24,7 +24,7 @@ export class MarketMakerAgent {
     if (!proposal || proposal.type !== "create_market") return;
 
     const data = proposal.data;
-    let score = 50;
+    let score = 40;
     let reasoning = "";
 
     // Assess market-making viability
@@ -32,37 +32,63 @@ export class MarketMakerAgent {
     const priceData = prices[data.feedId];
 
     if (priceData) {
-      const currentPrice = priceData.price;
+      const currentPrice = priceData.floatPrice || priceData.price;
       const strike = data.strikePrice;
       const distance = Math.abs(currentPrice - strike) / currentPrice;
 
       // Markets near the money are best for liquidity provision
-      if (distance < 0.02) {
-        score += 25;
-        reasoning += "Near-the-money: excellent for liquidity. ";
-      } else if (distance < 0.05) {
-        score += 15;
+      if (distance < 0.01) {
+        score += 30;
+        reasoning += "At-the-money: ideal for liquidity. ";
+      } else if (distance < 0.03) {
+        score += 20;
+        reasoning += "Near-the-money: good for liquidity. ";
+      } else if (distance < 0.07) {
+        score += 8;
         reasoning += "Moderate distance from strike. ";
       } else {
-        score -= 10;
+        score -= 15;
         reasoning += "Far from strike: low trading interest expected. ";
       }
 
-      // Duration assessment
-      if (data.durationMinutes >= 30 && data.durationMinutes <= 120) {
-        score += 10;
-        reasoning += "Good duration for fee capture. ";
+      // Duration sweet spot — 30-120 min is ideal for fee capture
+      if (data.durationMinutes >= 30 && data.durationMinutes <= 90) {
+        score += 12;
+        reasoning += "Ideal duration for fee capture. ";
+      } else if (data.durationMinutes < 30) {
+        score -= 5;
+        reasoning += "Short duration limits fee opportunity. ";
+      } else if (data.durationMinutes > 120) {
+        score += 3;
+        reasoning += "Long duration — slow fee accumulation. ";
+      }
+
+      // Prefer higher-value assets (more trading interest)
+      if (currentPrice > 10000) {
+        score += 8;
+        reasoning += "High-value asset attracts traders. ";
+      } else if (currentPrice < 0.1) {
+        score -= 5;
+        reasoning += "Low-value asset: thin market expected. ";
+      }
+
+      // Portfolio diversity — penalize if too many of same feed
+      const sameFeedCount = this.activePositions.filter(p => p.feedId === data.feedId).length;
+      if (sameFeedCount > 2) {
+        score -= 10;
+        reasoning += "Overexposed to this feed. ";
+      } else if (sameFeedCount === 0) {
+        score += 5;
+        reasoning += "New feed — diversifies portfolio. ";
       }
     } else {
-      score -= 15;
+      score -= 20;
       reasoning += "No price data available for liquidity calibration. ";
     }
 
-    // Volume potential
-    if (data.confidence >= 60) {
-      score += 10;
-      reasoning += "High-confidence market likely attracts volume. ";
-    }
+    // Per-proposal variance based on content
+    const seed = (data.question || "").length + (data.durationMinutes || 0);
+    score += ((seed * 13) % 11) - 5; // -5 to +5
 
     score = Math.max(10, Math.min(95, score));
     return convictionMarket.vote(proposalId, CFG.name, score, reasoning.trim());

@@ -15,6 +15,7 @@ export class OracleAgent {
     this.provider = new ethers.JsonRpcProvider(NETWORKS.flare.rpc);
     this.factory = null;
     this.latestPrices = {};
+    this._priceHistory = {};
     this.priceUpdateCount = 0;
     this.status = "idle";
 
@@ -57,6 +58,11 @@ export class OracleAgent {
             feedName: feedNames[i],
             source: "ftso_onchain",
           };
+
+          // Track price history for volatility calculation
+          if (!this._priceHistory[feedIds[i]]) this._priceHistory[feedIds[i]] = [];
+          this._priceHistory[feedIds[i]].push(floatPrice);
+          if (this._priceHistory[feedIds[i]].length > 10) this._priceHistory[feedIds[i]].shift();
         }
 
         bus.publish(EVENTS.PRICE_UPDATE, {
@@ -98,20 +104,52 @@ export class OracleAgent {
     if (!proposal || proposal.type !== "create_market") return;
 
     const data = proposal.data;
-    let score = 40;
+    let score = 35;
     let reasoning = "";
 
     // Check if we have price data for this feed
-    if (this.latestPrices[data.feedId]) {
-      score += 30;
+    const feedData = this.latestPrices[data.feedId];
+    if (feedData) {
+      score += 25;
       reasoning += "Active price feed confirmed. ";
 
-      const priceAge = Date.now() / 1000 - (this.latestPrices[data.feedId].timestamp || 0);
-      if (priceAge < 120) {
-        score += 15;
-        reasoning += "Fresh data (<2min). ";
-      } else {
+      const priceAge = Date.now() / 1000 - (feedData.timestamp || 0);
+      if (priceAge < 30) {
+        score += 20;
+        reasoning += "Very fresh data (<30s). ";
+      } else if (priceAge < 120) {
+        score += 10;
         reasoning += `Data age: ${Math.round(priceAge)}s. `;
+      } else {
+        score -= 5;
+        reasoning += `Stale data: ${Math.round(priceAge)}s old. `;
+      }
+
+      // Price momentum confidence — is the price stable or volatile?
+      if (this._priceHistory && this._priceHistory[data.feedId]) {
+        const hist = this._priceHistory[data.feedId];
+        if (hist.length >= 2) {
+          const recent = hist.slice(-3);
+          const avg = recent.reduce((s, v) => s + v, 0) / recent.length;
+          const variance = recent.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / recent.length;
+          const volatility = Math.sqrt(variance) / avg;
+          if (volatility < 0.001) {
+            score += 15;
+            reasoning += "Low volatility — high oracle confidence. ";
+          } else if (volatility < 0.005) {
+            score += 5;
+            reasoning += "Moderate volatility. ";
+          } else {
+            score -= 10;
+            reasoning += "High volatility — oracle uncertainty. ";
+          }
+        }
+      }
+
+      // Duration-based confidence — shorter markets need fresher data
+      if (data.durationMinutes < 30 && priceAge > 60) {
+        score -= 10;
+        reasoning += "Short market needs fresher oracle data. ";
       }
     } else {
       score -= 20;
@@ -120,9 +158,14 @@ export class OracleAgent {
 
     // Feed exists in our known feeds
     if (FEED_NAMES[data.feedId]) {
-      score += 10;
+      score += 8;
       reasoning += `Known feed: ${FEED_NAMES[data.feedId]}. `;
     }
+
+    // Per-proposal uncertainty factor (based on proposal content hash)
+    const contentSeed = (data.question || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    const uncertainty = ((contentSeed * 7 + data.durationMinutes) % 15) - 7; // -7 to +7
+    score += uncertainty;
 
     score = Math.max(5, Math.min(95, score));
     return convictionMarket.vote(proposalId, CFG.name, score, reasoning.trim());
@@ -183,6 +226,11 @@ export class OracleAgent {
         feedName: name,
         source: "simulated",
       };
+
+      // Track price history
+      if (!this._priceHistory[feedIds[i]]) this._priceHistory[feedIds[i]] = [];
+      this._priceHistory[feedIds[i]].push(newFloat);
+      if (this._priceHistory[feedIds[i]].length > 10) this._priceHistory[feedIds[i]].shift();
     }
   }
 }

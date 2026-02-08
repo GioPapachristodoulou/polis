@@ -151,7 +151,7 @@
   <div class="arch-features mono">
     <div class="arch-feat"><div class="arch-feat-label" style="color:#fcd34d">FTSO v2 Oracle</div><div class="arch-feat-desc">On-chain price feeds</div></div>
     <div class="arch-feat"><div class="arch-feat-label" style="color:#c4b5fd">AMM Pricing</div><div class="arch-feat-desc">Constant-product</div></div>
-    <div class="arch-feat"><div class="arch-feat-label" style="color:#60a5fa">Conviction Market</div><div class="arch-feat-desc">Agent consensus ≥60</div></div>
+    <div class="arch-feat"><div class="arch-feat-label" style="color:#60a5fa">Conviction Market</div><div class="arch-feat-desc">Agent consensus ≥75</div></div>
     <div class="arch-feat"><div class="arch-feat-label" style="color:#6ee7b7">Plasma Zero-Fee</div><div class="arch-feat-desc">Stablecoin payouts</div></div>
     <div class="arch-feat"><div class="arch-feat-label" style="color:#5eead4">Live Prices</div><div class="arch-feat-desc">CoinGecko + FTSO</div></div>
   </div>
@@ -563,7 +563,7 @@ function simulateCycle() {
       total += score;
     }
     const avg = Math.round(total / 4 * 10) / 10;
-    const approved = avg >= 60;
+    const approved = avg >= 75;
 
     state.convictions.push({ id:uid(), question, feed, votes, avg, approved, ts:Date.now() });
     if (state.convictions.length > 12) state.convictions = state.convictions.slice(-12);

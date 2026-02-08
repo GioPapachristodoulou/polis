@@ -131,14 +131,24 @@ export class ScoutAgent {
     for (const r of roundings) {
       const above = Math.ceil(price / r) * r;
       const below = Math.floor(price / r) * r;
+      const above2 = above + r; // Second round number away
+      const below2 = below - r;
       const dA = (above - price) / price;
       const dB = (price - below) / price;
+      const dA2 = (above2 - price) / price;
+      const dB2 = (price - below2) / price;
+      // Close targets — higher confidence
       if (dA > 0.001 && dA < 0.05)
-        targets.push({ value: above, label: this._fmtPrice(above), direction: "above", confidence: Math.round(70 - dA * 1000) });
+        targets.push({ value: above, label: this._fmtPrice(above), direction: "above", confidence: Math.round(75 - dA * 800) });
       if (dB > 0.001 && dB < 0.05)
-        targets.push({ value: below, label: this._fmtPrice(below), direction: "below", confidence: Math.round(70 - dB * 1000) });
+        targets.push({ value: below, label: this._fmtPrice(below), direction: "below", confidence: Math.round(75 - dB * 800) });
+      // Further targets — lower confidence, agents should be skeptical
+      if (dA2 > 0.02 && dA2 < 0.12)
+        targets.push({ value: above2, label: this._fmtPrice(above2), direction: "above", confidence: Math.round(45 - dA2 * 200) });
+      if (dB2 > 0.02 && dB2 < 0.12)
+        targets.push({ value: below2, label: this._fmtPrice(below2), direction: "below", confidence: Math.round(45 - dB2 * 200) });
     }
-    return targets.slice(0, 2);
+    return targets.slice(0, 3);
   }
 
   _fmtPrice(v) {
@@ -151,13 +161,34 @@ export class ScoutAgent {
   _generateSyntheticEvents(prices) {
     const events = [];
     const templates = [
+      // Conservative — should generally pass
       { feedKey: "BTC/USD", qFn: p => `Will BTC hold above $${(Math.floor(p/1000)*1000).toLocaleString()}?`,
-        sFn: p => Math.floor(p/1000)*1000, isAbove: true, dur: 60 },
+        sFn: p => Math.floor(p/1000)*1000, isAbove: true, dur: 60, confidence: 72 },
       { feedKey: "ETH/USD", qFn: p => `Will ETH break $${(Math.ceil(p/50)*50).toLocaleString()} in 2h?`,
-        sFn: p => Math.ceil(p/50)*50, isAbove: true, dur: 120 },
+        sFn: p => Math.ceil(p/50)*50, isAbove: true, dur: 120, confidence: 68 },
+      // Moderate — could go either way
       { feedKey: "FLR/USD", qFn: p => `Will FLR gain 5% from $${p.toFixed(4)} in 1h?`,
-        sFn: p => p*1.05, isAbove: true, dur: 60 },
+        sFn: p => p*1.05, isAbove: true, dur: 60, confidence: 55 },
+      { feedKey: "SOL/USD", qFn: p => `Will SOL surge 8% to $${(p*1.08).toFixed(0)} in 90min?`,
+        sFn: p => p*1.08, isAbove: true, dur: 90, confidence: 40 },
+      // Speculative — agents should be skeptical, likely rejected
+      { feedKey: "BTC/USD", qFn: p => `Will BTC crash 15% to $${(p*0.85).toFixed(0)} in 30min?`,
+        sFn: p => p*0.85, isAbove: false, dur: 30, confidence: 25 },
+      { feedKey: "ETH/USD", qFn: p => `Will ETH moon to $${(p*1.20).toFixed(0)} by tomorrow?`,
+        sFn: p => p*1.20, isAbove: true, dur: 480, confidence: 20 },
+      { feedKey: "DOGE/USD", qFn: p => `Quick: DOGE above $${(p*1.03).toFixed(4)} in 8min?`,
+        sFn: p => p*1.03, isAbove: true, dur: 8, confidence: 35 },
+      { feedKey: "FLR/USD", qFn: p => `Will FLR double to $${(p*2).toFixed(4)} in 4h?`,
+        sFn: p => p*2, isAbove: true, dur: 240, confidence: 10 },
+      { feedKey: "XRP/USD", qFn: p => `Flash crash: XRP below $${(p*0.7).toFixed(2)} in 20min?`,
+        sFn: p => p*0.7, isAbove: false, dur: 20, confidence: 15 },
+      // Borderline — near the threshold, interesting to watch
+      { feedKey: "ADA/USD", qFn: p => `Will ADA move 3% from $${p.toFixed(4)} in 45min?`,
+        sFn: p => p*1.03, isAbove: true, dur: 45, confidence: 58 },
+      { feedKey: "AVAX/USD", qFn: p => `AVAX above $${(p*1.06).toFixed(2)} in 1h?`,
+        sFn: p => p*1.06, isAbove: true, dur: 60, confidence: 48 },
     ];
+    // Cycle through templates — produces different quality proposals over time
     const t = templates[this.scanCount % templates.length];
     const feedId = FEED_IDS[t.feedKey];
     const pd = prices[feedId];
@@ -171,7 +202,7 @@ export class ScoutAgent {
           feedId, feedName: t.feedKey, strikePrice: t.sFn(fp),
           isAboveStrike: t.isAbove, durationMinutes: t.dur,
           category: "crypto", source: "synthetic_generation",
-          currentPrice: fp, confidence: 65,
+          currentPrice: fp, confidence: t.confidence,
         });
       }
     }

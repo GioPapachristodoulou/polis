@@ -31,27 +31,74 @@ export class ArchitectAgent {
     if (!proposal || proposal.type !== "create_market") return;
 
     const data = proposal.data;
-    let score = 50;
+    let score = 40;
     let reasoning = "";
 
     // Assess feasibility
     if (data.feedId && data.strikePrice > 0) {
-      score += 20;
-      reasoning += "Valid feed ID and strike price. ";
+      score += 15;
+      reasoning += "Valid feed and strike. ";
     }
-    if (data.durationMinutes >= 15 && data.durationMinutes <= 480) {
-      score += 10;
-      reasoning += "Reasonable duration. ";
-    }
-    if (data.confidence >= 50) {
-      score += Math.min(15, Math.round(data.confidence / 6));
-      reasoning += `Scout confidence: ${data.confidence}%. `;
-    }
-    // Penalize if too similar to recent markets
-    if (this.deployedCount > 5) {
+
+    // Duration assessment — more granular
+    if (data.durationMinutes >= 30 && data.durationMinutes <= 90) {
+      score += 15;
+      reasoning += "Ideal duration for deployment. ";
+    } else if (data.durationMinutes >= 15 && data.durationMinutes <= 180) {
+      score += 8;
+      reasoning += "Acceptable duration. ";
+    } else if (data.durationMinutes > 180) {
+      score += 3;
+      reasoning += "Long duration — higher gas cost risk. ";
+    } else {
       score -= 5;
-      reasoning += "High market density. ";
+      reasoning += "Very short duration. ";
     }
+
+    // Scout confidence
+    if (data.confidence >= 80) {
+      score += 18;
+      reasoning += `High scout confidence: ${data.confidence}%. `;
+    } else if (data.confidence >= 60) {
+      score += 10;
+      reasoning += `Moderate scout confidence: ${data.confidence}%. `;
+    } else if (data.confidence >= 40) {
+      score += 3;
+      reasoning += `Low scout confidence: ${data.confidence}%. `;
+    }
+
+    // Question complexity — longer, more specific questions are better
+    const qLen = (data.question || "").length;
+    if (qLen > 50) {
+      score += 8;
+      reasoning += "Well-formed question. ";
+    } else if (qLen > 30) {
+      score += 3;
+      reasoning += "Adequate question. ";
+    }
+
+    // Market saturation — penalize if many markets deployed
+    if (this.deployedCount > 15) {
+      score -= 12;
+      reasoning += "High market density — deployment fatigue. ";
+    } else if (this.deployedCount > 8) {
+      score -= 5;
+      reasoning += "Moderate market density. ";
+    } else {
+      score += 5;
+      reasoning += "Low density — capacity available. ";
+    }
+
+    // Uniqueness — is this a different asset from recent deploys?
+    const isAbove = data.question?.includes("above") || data.question?.includes("break") || data.question?.includes("gain");
+    if (isAbove) {
+      score += 3;
+      reasoning += "Bullish market adds diversity. ";
+    }
+
+    // Per-proposal variance from content
+    const seed = (data.question || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    score += ((seed * 17) % 13) - 6; // -6 to +6
 
     score = Math.max(10, Math.min(95, score));
     reasoning = reasoning.trim() || "Standard assessment.";

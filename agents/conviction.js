@@ -18,7 +18,7 @@ export class ConvictionMarket {
     /** @type {Map<string, Proposal>} */
     this.proposals = new Map();
     this.history = [];
-    this.consensusThreshold = 60; // Average score must be >= 60
+    this.consensusThreshold = 75; // Average score must be >= 75 — high quality bar
     this.minVoters = 4; // All 4 non-proposer agents must vote // At least 3 agents must vote
   }
 
