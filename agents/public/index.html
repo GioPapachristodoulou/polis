@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POLIS — Autonomous Prediction Market Collective</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background: linear-gradient(170deg, #06060e 0%, #0a0a18 50%, #0d0815 100%);
+    color: #e2e8f0; font-family: 'DM Sans', -apple-system, sans-serif;
+    min-height: 100vh; padding: 16px 20px;
+  }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #ffffff15; border-radius: 2px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  /* Header */
+  .header { display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid #1a1a2e; margin-bottom:12px; }
+  .logo { font-size:26px; font-weight:700; background:linear-gradient(135deg,#5eead4,#c4b5fd,#fcd34d); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-0.03em; }
+  .subtitle { color:#4b5563; font-size:11px; }
+  .status-pill { display:flex; align-items:center; gap:5px; padding:3px 10px; border-radius:16px; font-size:10px; font-weight:600; }
+  .status-dot { width:5px; height:5px; border-radius:50%; animation:pulse 2s infinite; }
+
+  /* Price Ticker */
+  .ticker { display:flex; gap:6px; flex-wrap:wrap; padding:8px 0; border-bottom:1px solid #1a1a2e; }
+  .price-card { flex:1 1 130px; min-width:130px; padding:10px 14px; background:#0c0c18; border-radius:10px; border:1px solid #1a1a2e; transition:border-color 0.4s; }
+  .price-pair { color:#6b7280; font-size:11px; letter-spacing:.04em; }
+  .price-value { font-size:18px; font-weight:700; margin-top:2px; }
+  .price-change { font-size:9px; padding:1px 6px; border-radius:4px; }
+  .up { color:#5eead4; } .down { color:#fca5a5; }
+  .up-bg { background:#5eead415; border-color:#5eead422 !important; }
+  .down-bg { background:#fca5a515; border-color:#fca5a522 !important; }
+
+  /* Agent Cards */
+  .agents-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:12px 0; }
+  .agent-card { background:#0c0c18; border-radius:10px; padding:14px 16px; border:1px solid #1a1a2e; position:relative; overflow:hidden; transition:border-color 0.5s; }
+  .agent-glow { position:absolute; top:0; left:0; right:0; height:2px; transition:opacity 0.5s; }
+  .agent-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .agent-emoji { font-size:20px; }
+  .agent-name { font-weight:700; font-size:12px; }
+  .agent-role { color:#4b5563; font-size:9px; line-height:1.2; }
+  .agent-dot { width:7px; height:7px; border-radius:50%; margin-left:auto; }
+  .agent-footer { display:flex; justify-content:space-between; font-size:10px; color:#6b7280; }
+
+  /* Main Grid */
+  .main-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .panel { background:#0c0c18; border-radius:12px; padding:16px; border:1px solid #1a1a2e; }
+  .panel-title { font-size:13px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .count-badge { background:#5eead412; color:#5eead4; padding:2px 8px; border-radius:10px; font-size:10px; }
+
+  /* Conviction Items */
+  .conviction-item { margin-bottom:10px; padding:10px 12px; border-radius:8px; }
+  .conviction-approved { background:#5eead406; border:1px solid #5eead418; }
+  .conviction-rejected { background:#fca5a506; border:1px solid #fca5a518; }
+  .conviction-header { display:flex; align-items:flex-start; gap:6px; margin-bottom:6px; }
+  .conviction-question { color:#d1d5db; font-size:11px; line-height:1.3; flex:1; }
+  .conviction-score { font-size:14px; font-weight:700; flex-shrink:0; }
+  .conviction-votes { display:flex; gap:4px; flex-wrap:wrap; }
+  .vote-badge { font-size:9px; padding:2px 7px; border-radius:4px; }
+
+  /* Market Items */
+  .market-item { margin-bottom:8px; padding:10px 12px; border-radius:8px; background:#ffffff03; border:1px solid #ffffff08; }
+  .market-question { color:#d1d5db; font-size:11px; margin-bottom:4px; line-height:1.3; }
+  .market-meta { display:flex; gap:8px; align-items:center; }
+  .market-addr { font-size:9px; color:#6b7280; }
+  .odds-bar { flex:1; height:4px; border-radius:2px; background:#1a1a2e; overflow:hidden; display:flex; }
+  .odds-yes { background:#5eead4; border-radius:2px; transition:width 1s; }
+  .odds-no { flex:1; background:#fca5a540; }
+
+  /* Event Stream */
+  .event-item { font-size:10px; padding:3px 0; border-bottom:1px solid #ffffff04; display:flex; gap:6px; align-items:flex-start; }
+  .event-time { color:#374151; min-width:52px; flex-shrink:0; }
+  .event-agent { flex-shrink:0; min-width:50px; }
+  .event-msg { color:#9ca3af; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* Architecture */
+  .arch { background:#0c0c18; border-radius:12px; padding:16px; border:1px solid #1a1a2e; margin-top:12px; }
+  .arch-flow { display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; font-size:10px; }
+  .arch-node { padding:4px 10px; background:#ffffff06; border-radius:6px; border:1px solid #ffffff0a; color:#d1d5db; }
+  .arch-arrow { color:#374151; padding:0 2px; }
+  .arch-features { display:flex; justify-content:center; gap:16px; margin-top:10px; flex-wrap:wrap; }
+  .arch-feat { text-align:center; }
+  .arch-feat-label { font-size:10px; font-weight:600; }
+  .arch-feat-desc { color:#4b5563; font-size:9px; }
+
+  /* Footer */
+  .footer { margin-top:16px; padding-top:10px; border-top:1px solid #0f0f20; display:flex; justify-content:space-between; color:#262636; font-size:9px; }
+
+  @media (max-width: 900px) {
+    .agents-grid { grid-template-columns: repeat(3,1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="logo mono">POLIS</div>
+    <div class="subtitle mono">Autonomous Prediction Market Collective</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="status-pill" id="statusPill" style="background:#fcd34d10;border:1px solid #fcd34d25">
+      <div class="status-dot" id="statusDot" style="background:#fcd34d;box-shadow:0 0 6px #fcd34d80"></div>
+      <span id="statusText" class="mono" style="color:#fcd34d">CONNECTING...</span>
+    </div>
+    <span id="cycleCount" class="mono" style="color:#374151;font-size:10px">Cycle #0</span>
+  </div>
+</div>
+
+<!-- PRICE TICKER -->
+<div class="ticker" id="ticker"></div>
+
+<!-- AGENT CARDS -->
+<div class="agents-grid" id="agentsGrid"></div>
+
+<!-- MAIN 3-COL GRID -->
+<div class="main-grid">
+  <div class="panel">
+    <div class="panel-title mono">⚖️ Conviction Consensus</div>
+    <div id="convictionList"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title mono">
+      🎯 Live Markets <span class="count-badge mono" id="marketCount">0</span>
+    </div>
+    <div id="marketList"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title mono">📡 Event Stream</div>
+    <div id="eventList" style="max-height:310px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="arch">
+  <div class="panel-title mono">🏛️ Architecture</div>
+  <div class="arch-flow mono">
+    <span class="arch-node">🔍 Scout</span><span class="arch-arrow">→</span>
+    <span class="arch-node">📊 Conviction</span><span class="arch-arrow">→</span>
+    <span class="arch-node">🏗️ Architect</span><span class="arch-arrow">→</span>
+    <span class="arch-node">⛓️ Flare Coston2</span><span class="arch-arrow">→</span>
+    <span class="arch-node" style="background:#6ee7b710;border-color:#6ee7b720;color:#6ee7b7">💰 Plasma Settlement</span>
+  </div>
+  <div class="arch-features mono">
+    <div class="arch-feat"><div class="arch-feat-label" style="color:#fcd34d">FTSO v2 Oracle</div><div class="arch-feat-desc">On-chain price feeds</div></div>
+    <div class="arch-feat"><div class="arch-feat-label" style="color:#c4b5fd">AMM Pricing</div><div class="arch-feat-desc">Constant-product</div></div>
+    <div class="arch-feat"><div class="arch-feat-label" style="color:#60a5fa">Conviction Market</div><div class="arch-feat-desc">Agent consensus ≥60</div></div>
+    <div class="arch-feat"><div class="arch-feat-label" style="color:#6ee7b7">Plasma Zero-Fee</div><div class="arch-feat-desc">Stablecoin payouts</div></div>
+    <div class="arch-feat"><div class="arch-feat-label" style="color:#5eead4">Live Prices</div><div class="arch-feat-desc">CoinGecko + FTSO</div></div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer mono">
+  <span>POLIS v1.0 · ETH Oxford 2026</span>
+  <span>Flare FTSO v2 + Plasma Settlement · AI Middleware Track</span>
+  <span>5 Autonomous Agents · Conviction Consensus</span>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  POLIS Dashboard — Pure JS, no build step
+// ═══════════════════════════════════════════════════
+
+const AGENTS_META = {
+  Scout:        { emoji:"🔍", color:"#5eead4", role:"Discovers events from FTSO feeds" },
+  Architect:    { emoji:"🏗️", color:"#c4b5fd", role:"Designs & deploys market contracts" },
+  Oracle:       { emoji:"🔮", color:"#fcd34d", role:"Reads Flare FTSO v2 price data" },
+  "Market Maker":{ emoji:"💹", color:"#6ee7b7", role:"Algorithmic liquidity provision" },
+  Sentinel:     { emoji:"🛡️", color:"#fca5a5", role:"Risk assessment & circuit breaker" },
+};
+
+const COINGECKO_MAP = {
+  "FLR/USD":"flare-networks","BTC/USD":"bitcoin","ETH/USD":"ethereum",
+  "XRP/USD":"ripple","SOL/USD":"solana","DOGE/USD":"dogecoin",
+  "ADA/USD":"cardano","AVAX/USD":"avalanche-2"
+};
+const SHOW_FEEDS = ["BTC/USD","ETH/USD","FLR/USD","SOL/USD","XRP/USD"];
+
+// State
+let state = {
+  cycle: 0,
+  prices: {},
+  agents: {},
+  markets: [],
+  convictions: [],
+  events: [],
+  priceSource: "loading",
+  wsConnected: false,
+};
+
+function fmt(v) {
+  if (!v || v === 0) return "...";
+  if (v > 100) return "$" + v.toLocaleString(undefined, {maximumFractionDigits:2});
+  if (v > 1) return "$" + v.toFixed(4);
+  return "$" + v.toFixed(6);
+}
+
+function timeStr(ts) {
+  return new Date(ts).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}
+
+function agentColor(agent) {
+  if (agent === "Oracle") return "#fcd34d";
+  if (agent === "Scout") return "#5eead4";
+  if (agent === "Architect") return "#c4b5fd";
+  if (agent === "Market Maker") return "#6ee7b7";
+  if (agent === "Sentinel") return "#fca5a5";
+  if (agent === "Consensus") return "#60a5fa";
+  return "#6b7280";
+}
+
+// ─────────────────────────────────────────────────
+//  LIVE PRICES — CoinGecko (free, no key)
+// ─────────────────────────────────────────────────
+async function fetchLivePrices() {
+  try {
+    const ids = Object.values(COINGECKO_MAP).join(",");
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const prices = {};
+    for (const [feed, cgId] of Object.entries(COINGECKO_MAP)) {
+      const d = data[cgId];
+      if (d) prices[feed] = { value: d.usd, change24h: d.usd_24h_change || 0, source: "coingecko", ts: Date.now() };
+    }
+    return prices;
+  } catch { return null; }
+}
+
+// ─────────────────────────────────────────────────
+//  WEBSOCKET — Connect to backend
+// ─────────────────────────────────────────────────
+let ws = null;
+function connectWS() {
+  try {
+    ws = new WebSocket("ws://localhost:3001");
+    ws.onopen = () => {
+      state.wsConnected = true;
+      state.priceSource = "backend_live";
+      updateStatus();
+    };
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "state" && msg.data) {
+          const d = msg.data;
+          if (d.cycleCount !== undefined) state.cycle = d.cycleCount;
+
+          // Map agent keys: backend uses lowercase, dashboard uses display names
+          if (d.agents) {
+            const map = { scout:"Scout", architect:"Architect", oracle:"Oracle", marketmaker:"Market Maker", sentinel:"Sentinel" };
+            state.agents = {};
+            for (const [k, v] of Object.entries(d.agents)) {
+              const name = map[k] || k;
+              let metric = 0;
+              if (k === "scout") metric = v.scanCount || 0;
+              else if (k === "architect") metric = v.deployedCount || 0;
+              else if (k === "oracle") metric = v.updateCount || 0;
+              else if (k === "marketmaker") metric = v.totalLiquidity || 0;
+              else if (k === "sentinel") metric = v.alertCount || 0;
+              // Clean up status text
+              let status = v.status || "idle";
+              if (status === "found_opportunities") status = "scanning";
+              state.agents[name] = { status, metric };
+            }
+          }
+
+          // Map markets: backend uses marketAddress, dashboard uses address
+          // Derive odds from conviction scores + some variance per market
+          if (d.deployedMarkets) {
+            state.markets = d.deployedMarkets.map((m, i) => {
+              // Find matching conviction to derive odds
+              const conv = (d.convictionHistory || []).find(c => (c.data?.question || c.question) === m.question);
+              const avgScore = conv?.consensus?.avgScore || conv?.avgScore || 70;
+              // Map conviction score (60-95) to odds range (30-80), add per-market variance
+              const seed = (m.question || "").length + i;
+              const variance = ((seed * 7) % 21) - 10; // -10 to +10
+              const baseOdds = Math.round(25 + (avgScore - 55) * 0.9 + variance);
+              const yesOdds = Math.max(15, Math.min(85, baseOdds));
+              return {
+                ...m,
+                address: m.marketAddress || m.address || "0x...",
+                yesOdds,
+                volume: (0.005 + (seed % 50) * 0.002).toFixed(3),
+              };
+            });
+          }
+
+          // Map convictions: backend has data.question, consensus fields
+          if (d.convictionHistory) {
+            state.convictions = d.convictionHistory.map(c => ({
+              id: c.id || c.proposalId || Math.random().toString(36).slice(2,8),
+              question: c.data?.question || c.question || "Unknown",
+              approved: c.status === "approved" || c.consensus?.approved || false,
+              avg: c.consensus?.avgScore || c.avgScore || 0,
+              votes: c.votes || c.consensus?.votes || {},
+              ts: c.resolvedAt || c.createdAt || Date.now(),
+            }));
+          }
+
+          // Map events: backend has { type, data: {...}, timestamp }
+          if (d.recentEvents) {
+            state.events = d.recentEvents.map(e => {
+              const t = e.type || "";
+              const d2 = e.data || {};
+              let emoji = d2.emoji || "📡";
+              let agent = d2.agent || "";
+              let msg = "";
+
+              if (t === "agent:status") {
+                msg = d2.detail || d2.status || "";
+              } else if (t === "oracle:prices") {
+                emoji = "🔮"; agent = "Oracle";
+                const feeds = d2.prices ? Object.keys(d2.prices).length : 0;
+                msg = `Fetched ${feeds} FTSO price feeds`;
+              } else if (t === "scout:discovery") {
+                emoji = "🔍"; agent = "Scout";
+                msg = `Proposed: "${(d2.question || "").slice(0, 50)}..."`;
+              } else if (t === "conviction:vote") {
+                emoji = "⚖️"; agent = d2.agent || "Vote";
+                msg = `Scored ${d2.score}/100 (${d2.reasoning ? d2.reasoning.slice(0,40) : 'voted'})`;
+              } else if (t === "conviction:consensus") {
+                emoji = "⚖️"; agent = "Consensus";
+                msg = `${d2.approved ? "APPROVED" : "REJECTED"} (avg: ${d2.avgScore})`;
+              } else if (t === "market:deployed") {
+                emoji = "🏗️"; agent = "Architect";
+                msg = `Deployed: "${(d2.question || "").slice(0, 45)}..."`;
+              } else if (t === "liquidity:added") {
+                emoji = "💹"; agent = "Market Maker";
+                msg = `Liquidity: YES ${d2.initialYesOdds || "?"}% / NO ${d2.initialNoOdds || "?"}%`;
+              } else if (t === "risk:alert") {
+                emoji = "🚨"; agent = "Sentinel";
+                const alerts = Array.isArray(d2.alert) ? d2.alert[0] : (d2.alert || "Risk detected");
+                msg = (alerts || "").slice(0, 60);
+              } else if (t === "risk:assessed") {
+                emoji = "🛡️"; agent = "Sentinel";
+                msg = `Risk score: ${d2.score || "?"} — ${(d2.reasoning || "").slice(0, 40)}`;
+              } else {
+                msg = d2.detail || d2.message || d2.question || t;
+              }
+
+              return { id: e.id || Math.random().toString(36).slice(2,8), emoji, agent, msg, ts: e.timestamp || Date.now() };
+            });
+          }
+
+          renderAll();
+        }
+      } catch {}
+    };
+    ws.onclose = () => {
+      state.wsConnected = false;
+      if (state.priceSource === "backend_live") state.priceSource = "coingecko";
+      updateStatus();
+      setTimeout(connectWS, 3000); // Reconnect
+    };
+    ws.onerror = () => {};
+  } catch {
+    setTimeout(connectWS, 3000);
+  }
+}
+
+// ─────────────────────────────────────────────────
+//  RENDERING
+// ─────────────────────────────────────────────────
+function updateStatus() {
+  const pill = document.getElementById("statusPill");
+  const dot = document.getElementById("statusDot");
+  const txt = document.getElementById("statusText");
+  const cyc = document.getElementById("cycleCount");
+
+  if (state.wsConnected) {
+    pill.style.background = "#c4b5fd10"; pill.style.borderColor = "#c4b5fd25";
+    dot.style.background = "#c4b5fd"; dot.style.boxShadow = "0 0 6px #c4b5fd80";
+    txt.style.color = "#c4b5fd"; txt.textContent = "BACKEND LIVE";
+  } else if (state.priceSource === "coingecko") {
+    pill.style.background = "#5eead410"; pill.style.borderColor = "#5eead425";
+    dot.style.background = "#5eead4"; dot.style.boxShadow = "0 0 6px #5eead480";
+    txt.style.color = "#5eead4"; txt.textContent = "LIVE PRICES";
+  } else {
+    pill.style.background = "#fcd34d10"; pill.style.borderColor = "#fcd34d25";
+    dot.style.background = "#fcd34d"; dot.style.boxShadow = "0 0 6px #fcd34d80";
+    txt.style.color = "#fcd34d"; txt.textContent = "CONNECTING...";
+  }
+  cyc.textContent = "Cycle #" + state.cycle;
+}
+
+function renderPrices() {
+  const el = document.getElementById("ticker");
+  let html = "";
+  for (const f of SHOW_FEEDS) {
+    const d = state.prices[f] || {};
+    const up = (d.change24h || 0) >= 0;
+    const loading = !d.value;
+    html += `<div class="price-card ${loading ? '' : up ? 'up-bg' : 'down-bg'}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="price-pair mono">${f}</span>
+        ${loading ? '' : `<span class="price-change ${up?'up':'down'}" style="background:${up?'#5eead415':'#fca5a515'}">${up?'▲':'▼'} ${Math.abs(d.change24h||0).toFixed(1)}%</span>`}
+      </div>
+      <div class="price-value mono" style="color:${loading?'#374151':'#e2e8f0'}">${loading ? '...' : fmt(d.value)}</div>
+    </div>`;
+  }
+  // Source indicator
+  html += `<div class="price-card" style="flex:0 0 auto;border-color:${state.wsConnected?'#c4b5fd18':state.priceSource==='coingecko'?'#5eead418':'#fcd34d18'};display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">${state.wsConnected ? '⛓️' : state.priceSource==='coingecko' ? '🌐' : '⏳'}</span>
+    <div>
+      <div class="mono" style="color:${state.wsConnected?'#c4b5fd':state.priceSource==='coingecko'?'#5eead4':'#fcd34d'};font-size:11px;font-weight:600">
+        ${state.wsConnected ? 'FTSO + Live' : state.priceSource==='coingecko' ? 'LIVE' : 'Loading...'}
+      </div>
+      <div style="color:#4b5563;font-size:9px">${state.wsConnected ? 'Backend connected' : state.priceSource==='coingecko' ? 'CoinGecko API' : 'Fetching prices'}</div>
+    </div>
+  </div>`;
+  el.innerHTML = html;
+}
+
+function renderAgents() {
+  const el = document.getElementById("agentsGrid");
+  let html = "";
+  for (const [name, meta] of Object.entries(AGENTS_META)) {
+    const data = state.agents[name] || {};
+    const active = data.status && !["idle","watching"].includes(data.status);
+    html += `<div class="agent-card" style="border-color:${active ? meta.color+'44' : '#1a1a2e'}">
+      <div class="agent-glow" style="background:linear-gradient(90deg,transparent,${meta.color},transparent);opacity:${active?0.8:0.15}"></div>
+      <div class="agent-header">
+        <span class="agent-emoji">${meta.emoji}</span>
+        <div style="flex:1">
+          <div class="agent-name mono" style="color:${meta.color}">${name}</div>
+          <div class="agent-role">${meta.role}</div>
+        </div>
+        <div class="agent-dot" style="background:${active?meta.color:'#2a2a3e'};box-shadow:${active?'0 0 8px '+meta.color+'80':'none'};${active?'animation:pulse 1.2s infinite':''}"></div>
+      </div>
+      <div class="agent-footer mono">
+        <span>${data.status || 'idle'}</span>
+        <span style="color:#9ca3af">${typeof data.metric === 'number' ? (data.metric >= 100 ? Math.round(data.metric) : data.metric > 0.01 ? parseFloat(data.metric.toFixed(3)) : data.metric === 0 ? '' : data.metric.toFixed(4)) : ''}</span>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderConvictions() {
+  const el = document.getElementById("convictionList");
+  const recent = (state.convictions || []).slice(-5).reverse();
+  if (recent.length === 0) { el.innerHTML = '<div style="color:#374151;font-size:11px;font-style:italic">Awaiting proposals...</div>'; return; }
+  let html = "";
+  for (const c of recent) {
+    const q = c.question || "";
+    html += `<div class="conviction-item ${c.approved ? 'conviction-approved' : 'conviction-rejected'}">
+      <div class="conviction-header">
+        <span style="font-size:13px;flex-shrink:0">${c.approved ? '✅' : '❌'}</span>
+        <span class="conviction-question">${q.length > 55 ? q.slice(0,55)+'...' : q}</span>
+        <span class="conviction-score mono" style="color:${c.approved?'#5eead4':'#fca5a5'}">${c.avg}</span>
+      </div>
+      <div class="conviction-votes">${renderVoteBadges(c.votes)}</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderVoteBadges(votes) {
+  if (!votes) return "";
+  let html = "";
+  for (const [a, v] of Object.entries(votes)) {
+    const col = AGENTS_META[a]?.color || "#666";
+    const score = typeof v === "object" ? v.score : v;
+    const emoji = AGENTS_META[a]?.emoji || "🤖";
+    html += `<span class="vote-badge mono" style="background:${col}12;border:1px solid ${col}25;color:${col}">${emoji} ${score}</span>`;
+  }
+  return html;
+}
+
+function renderMarkets() {
+  const el = document.getElementById("marketList");
+  const cnt = document.getElementById("marketCount");
+  const recent = (state.markets || []).slice(-6).reverse();
+  cnt.textContent = (state.markets || []).length;
+  if (recent.length === 0) { el.innerHTML = '<div style="color:#374151;font-size:11px;font-style:italic">No markets yet...</div>'; return; }
+  let html = "";
+  for (const m of recent) {
+    const addr = m.address || "0x...";
+    const yesOdds = m.yesOdds || 50;
+    html += `<div class="market-item">
+      <div class="market-question">${m.question || 'Market'}</div>
+      <div class="market-meta mono">
+        <span class="market-addr">📍 ${addr.slice(0,14)}...</span>
+        <div class="odds-bar"><div class="odds-yes" style="width:${yesOdds}%"></div><div class="odds-no"></div></div>
+        <span style="font-size:9px;color:#5eead4">${yesOdds}%</span>
+        <span style="font-size:9px;color:#6b7280">${m.volume || '0.01'} C2FLR</span>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderEvents() {
+  const el = document.getElementById("eventList");
+  const recent = (state.events || []).slice(-14).reverse();
+  let html = "";
+  for (const e of recent) {
+    html += `<div class="event-item mono">
+      <span class="event-time">${timeStr(e.ts)}</span>
+      <span style="flex-shrink:0">${e.emoji || '📡'}</span>
+      <span class="event-agent" style="color:${agentColor(e.agent)}">${e.agent || ''}</span>
+      <span class="event-msg">${e.msg || ''}</span>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderAll() {
+  updateStatus();
+  renderPrices();
+  renderAgents();
+  renderConvictions();
+  renderMarkets();
+  renderEvents();
+}
+
+// ─────────────────────────────────────────────────
+//  SIMULATED AGENT ACTIVITY (when no backend)
+// ─────────────────────────────────────────────────
+const MARKET_TEMPLATES = [
+  (f,p) => `Will ${f} be above ${fmt(p*1.02)} in 1 hour?`,
+  (f,p) => `Will ${f} hold above ${fmt(p*0.98)} by end of day?`,
+  (f,p) => `Will ${f} break ${fmt(p*1.05)} in 2 hours?`,
+  (f,p) => `Will ${f} drop below ${fmt(p*0.95)} in 30 min?`,
+];
+
+function simulateCycle() {
+  if (state.wsConnected) return; // Backend handles it
+  if (state.priceSource === "loading") return;
+
+  state.cycle++;
+  const uid = () => Math.random().toString(36).slice(2,8);
+
+  // Add oracle event
+  state.events.push({ id:uid(), emoji:"🔮", agent:"Oracle", msg:`Fetched ${SHOW_FEEDS.length} live feeds via CoinGecko`, ts:Date.now() });
+
+  // Every 3 cycles, create a market
+  if (state.cycle % 3 === 0) {
+    const feeds = SHOW_FEEDS.filter(f => state.prices[f]?.value > 0);
+    if (feeds.length === 0) return;
+    const feed = feeds[Math.floor(Math.random() * feeds.length)];
+    const price = state.prices[feed].value;
+    const tpl = MARKET_TEMPLATES[Math.floor(Math.random() * MARKET_TEMPLATES.length)];
+    const question = tpl(feed, price);
+
+    state.events.push({ id:uid(), emoji:"🔍", agent:"Scout", msg:`Proposed: "${question.slice(0,55)}..."`, ts:Date.now() });
+
+    // Conviction voting
+    const votes = {};
+    let total = 0;
+    for (const a of ["Architect","Oracle","Market Maker","Sentinel"]) {
+      const score = Math.min(95, Math.max(35, (a==="Sentinel"?65:75) + Math.floor((Math.random()-0.3)*25)));
+      votes[a] = { score };
+      total += score;
+    }
+    const avg = Math.round(total / 4 * 10) / 10;
+    const approved = avg >= 60;
+
+    state.convictions.push({ id:uid(), question, feed, votes, avg, approved, ts:Date.now() });
+    if (state.convictions.length > 12) state.convictions = state.convictions.slice(-12);
+
+    if (approved) {
+      state.events.push({ id:uid(), emoji:"⚖️", agent:"Consensus", msg:`APPROVED (avg: ${avg})`, ts:Date.now() });
+      const yesOdds = 35 + Math.floor(Math.random()*30);
+      state.markets.push({ id:uid(), question, feed, address:`0x${uid()}${uid()}${uid().slice(0,4)}`, yesOdds, noOdds:100-yesOdds, volume:(Math.random()*0.5+0.01).toFixed(3), status:"active", ts:Date.now() });
+      if (state.markets.length > 20) state.markets = state.markets.slice(-20);
+      state.events.push({ id:uid(), emoji:"🏗️", agent:"Architect", msg:`Deployed market (simulated)`, ts:Date.now() });
+      state.events.push({ id:uid(), emoji:"💹", agent:"Market Maker", msg:`Liquidity: YES ${yesOdds}% / NO ${100-yesOdds}%`, ts:Date.now() });
+    }
+  }
+
+  if (state.events.length > 40) state.events = state.events.slice(-40);
+
+  // Update agent statuses
+  state.agents.Oracle = { status: "fetching", metric: state.cycle };
+  if (state.cycle % 3 === 0) state.agents.Scout = { status: "found_opportunity", metric: (state.agents.Scout?.metric||0)+1 };
+  else state.agents.Scout = { ...state.agents.Scout, status: "idle" };
+
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────
+async function init() {
+  renderAll();
+
+  // Start WebSocket connection
+  connectWS();
+
+  // Fetch live prices immediately
+  const prices = await fetchLivePrices();
+  if (prices) {
+    state.prices = prices;
+    state.priceSource = "coingecko";
+    renderAll();
+  }
+
+  // Refresh prices every 30s
+  setInterval(async () => {
+    const p = await fetchLivePrices();
+    if (p) {
+      state.prices = p;
+      if (!state.wsConnected) state.priceSource = "coingecko";
+      renderPrices();
+    }
+  }, 30000);
+
+  // Simulate agent cycles every 4s (only when no backend)
+  setInterval(simulateCycle, 4000);
+}
+
+init();
+</script>
+</body>
+</html>

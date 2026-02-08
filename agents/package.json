@@ -1,0 +1,17 @@
+{
+  "name": "polis-agents",
+  "version": "1.0.0",
+  "description": "POLIS AI Agent Swarm - Autonomous Prediction Market Collective",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node demo.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "cors": "^2.8.5"
+  }
+}

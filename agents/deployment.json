@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-02-08T00:36:30.807Z",
+  "deployer": "0x580f98311B099Aae1C364c2c023Af820a5209321",
+  "flare": {
+    "network": "Flare Coston2",
+    "chainId": 114,
+    "factory": "0xE1Ef11C23E972e25B1024ed12DF54665e91f4A9b",
+    "explorer": "https://coston2.testnet.flarescan.com/address/0xE1Ef11C23E972e25B1024ed12DF54665e91f4A9b"
+  },
+  "plasma": {
+    "network": "Plasma Testnet",
+    "chainId": 9746,
+    "settlement": "0x1F42dEe5320B74a4c6F3851da1635bD4F97E89f3",
+    "explorer": "https://testnet.plasmascan.io/address/0x1F42dEe5320B74a4c6F3851da1635bD4F97E89f3"
+  }
+}

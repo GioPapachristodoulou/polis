@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POLIS — Autonomous Prediction Market Collective</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17; --surface: #111827; --surfaceAlt: #0d1420;
+  --border: #1e293b; --text: #e2e8f0; --dim: #64748b; --muted: #475569;
+  --accent: #3b82f6; --green: #22c55e; --red: #ef4444;
+  --yellow: #eab308; --magenta: #a855f7; --cyan: #06b6d4; --orange: #f97316;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:translateY(0) } }
+
+.header { padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); }
+.logo { display:flex; align-items:center; gap:14px; }
+.logo-icon { font-size:22px; color:var(--accent); }
+.logo-title { font-size:16px; font-weight:700; letter-spacing:2px; }
+.logo-sub { font-size:10px; color:var(--muted); letter-spacing:1px; }
+.status { font-size:10px; display:flex; align-items:center; gap:6px; }
+.dot { width:6px; height:6px; border-radius:50%; display:inline-block; animation:pulse 2s ease-in-out infinite; }
+.btn { font-family:inherit; font-size:11px; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:6px 14px; border-radius:4px; cursor:pointer; letter-spacing:.5px; }
+.btn:hover { background:rgba(59,130,246,.15); }
+
+.ticker { display:flex; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--surfaceAlt); overflow:auto; }
+.tick { flex:1 1 0; padding:10px 14px; border-right:1px solid var(--border); min-width:120px; }
+.tick-label { font-size:10px; color:var(--muted); letter-spacing:1px; margin-bottom:2px; }
+.tick-value { font-size:15px; font-weight:600; }
+
+.main { flex:1; display:flex; flex-direction:column; gap:16px; padding:20px; }
+.row { display:flex; gap:12px; }
+.stat { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; flex:1 1 0; min-width:100px; }
+.stat-label { font-size:10px; color:var(--muted); letter-spacing:1px; margin-bottom:4px; }
+.stat-value { font-size:22px; font-weight:700; }
+
+.agent-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 16px; flex:1 1 0; min-width:140px; transition:all .3s; }
+.agent-card.active { box-shadow:0 0 20px rgba(59,130,246,.08); }
+.agent-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.agent-name { font-weight:700; font-size:13px; }
+.agent-role { font-size:11px; color:var(--dim); }
+.agent-stats { font-size:10px; color:var(--muted); margin-top:6px; }
+
+.grid { display:flex; gap:16px; flex:1; min-height:300px; }
+.feed-container { flex:2; display:flex; flex-direction:column; }
+.panel-container { flex:1; display:flex; flex-direction:column; gap:12px; }
+.section-label { font-size:10px; color:var(--muted); letter-spacing:1px; margin-bottom:8px; padding-left:4px; }
+
+#event-feed { flex:1; overflow:auto; font-size:12px; line-height:1.8; padding:12px 16px; background:var(--bg); border-radius:8px; border:1px solid var(--border); }
+.event-line { animation:fadeIn .5s ease; }
+
+.conviction-panel { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; }
+.conv-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.conv-badge { font-size:11px; font-weight:700; padding:2px 10px; border-radius:4px; }
+.conv-badge.approved { color:var(--green); background:rgba(34,197,94,.15); }
+.conv-badge.rejected { color:var(--red); background:rgba(239,68,68,.1); }
+.conv-score { font-size:28px; font-weight:700; }
+.conv-bar-bg { height:8px; background:var(--bg); border-radius:4px; overflow:hidden; }
+.conv-bar { height:100%; border-radius:4px; transition:width 1s ease; }
+.conv-scale { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); margin-top:2px; }
+.vote-row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.vote-name { font-size:11px; width:90px; text-align:right; }
+.vote-bar-bg { flex:1; height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.vote-bar { height:100%; border-radius:3px; opacity:.8; transition:width .8s ease; }
+.vote-score { font-size:11px; width:30px; text-align:right; }
+
+.infra { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; }
+.infra-row { display:flex; justify-content:space-between; font-size:11px; color:var(--dim); padding:3px 0; }
+
+.footer { padding:10px 24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <span class="logo-icon">◈</span>
+    <div>
+      <div class="logo-title">POLIS</div>
+      <div class="logo-sub">AUTONOMOUS PREDICTION MARKET COLLECTIVE</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span class="status" id="conn-status">
+      <span class="dot" style="background:var(--yellow);box-shadow:0 0 6px var(--yellow)"></span>
+      <span style="color:var(--yellow)">CONNECTING</span>
+    </span>
+    <button class="btn" onclick="triggerCycle()">▶ TRIGGER CYCLE</button>
+  </div>
+</div>
+
+<!-- PRICE TICKER -->
+<div class="ticker" id="ticker"></div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="row" id="stats-row"></div>
+  <div class="row" id="agents-row"></div>
+  <div class="grid">
+    <div class="feed-container">
+      <div class="section-label">AGENT EVENT FEED</div>
+      <div id="event-feed"></div>
+    </div>
+    <div class="panel-container">
+      <div class="section-label">CONVICTION CONSENSUS</div>
+      <div id="conviction-panel" class="conviction-panel" style="text-align:center;color:var(--muted);padding:30px;">No conviction votes yet</div>
+      <div class="infra">
+        <div class="section-label" style="padding-left:0;margin-bottom:6px;">INFRASTRUCTURE</div>
+        <div class="infra-row"><span>Chain</span><span style="color:var(--cyan)">Flare Coston2</span></div>
+        <div class="infra-row"><span>Oracle</span><span style="color:var(--yellow)">FTSO V2</span></div>
+        <div class="infra-row"><span>Settlement</span><span style="color:var(--magenta)">Plasma</span></div>
+        <div class="infra-row"><span>AI Engine</span><span style="color:var(--accent)">Claude</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <span>POLIS v1.0 — ETH Oxford 2026</span>
+  <span>AI Middleware × Flare FTSO × Plasma Payments</span>
+</div>
+
+<script>
+const API = 'http://localhost:3001';
+const AGENTS = {
+  Scout:      { color:'var(--green)',  role:'Discovery' },
+  Architect:  { color:'var(--accent)', role:'Design' },
+  Oracle:     { color:'var(--yellow)', role:'Data' },
+  MarketMaker:{ color:'var(--magenta)',role:'Liquidity' },
+  Sentinel:   { color:'var(--red)',    role:'Guardrails' },
+};
+
+let state = null;
+let liveMode = false;
+
+// ─── Render Functions ───
+function renderTicker(prices) {
+  const el = document.getElementById('ticker');
+  el.innerHTML = Object.entries(prices).map(([k,v]) => `
+    <div class="tick">
+      <div class="tick-label">${k}</div>
+      <div class="tick-value">$${v.price != null ? v.price.toLocaleString(undefined,{minimumFractionDigits:v.price<1?4:2,maximumFractionDigits:v.price<1?4:2}) : '—'}</div>
+    </div>
+  `).join('');
+}
+
+function renderStats(s) {
+  const el = document.getElementById('stats-row');
+  const uptime = s.uptime ? Math.floor(s.uptime/60000)+'m' : '—';
+  el.innerHTML = [
+    {l:'CYCLE',v:s.cycle,c:'var(--cyan)'},
+    {l:'MARKETS',v:s.marketsCreated,c:'var(--green)'},
+    {l:'RESOLVED',v:s.marketsResolved,c:'var(--yellow)'},
+    {l:'UPTIME',v:uptime,c:'var(--dim)'},
+    {l:'DISCOVERIES',v:s.agents?.scout?.discoveries||0,c:'var(--green)'},
+  ].map(x => `<div class="stat"><div class="stat-label">${x.l}</div><div class="stat-value" style="color:${x.c}">${x.v}</div></div>`).join('');
+}
+
+function renderAgents(s) {
+  const el = document.getElementById('agents-row');
+  const data = { Scout: s.agents?.scout?.discoveries||0 + ' found', Architect: s.agents?.architect?.designs||0 + ' designed', Oracle: 'active', MarketMaker: 'active', Sentinel: s.agents?.sentinel?.flagged||0 + ' flagged' };
+  el.innerHTML = Object.entries(AGENTS).map(([n,c]) => `
+    <div class="agent-card active" style="border-color:${c.color}44;box-shadow:0 0 20px ${c.color}11">
+      <div class="agent-header">
+        <span class="dot" style="width:8px;height:8px;background:${c.color};box-shadow:0 0 8px ${c.color}"></span>
+        <span class="agent-name" style="color:${c.color}">${n}</span>
+      </div>
+      <div class="agent-role">${c.role}</div>
+      <div class="agent-stats">${data[n]}</div>
+    </div>
+  `).join('');
+}
+
+function renderEvents(events) {
+  const el = document.getElementById('event-feed');
+  const types = { discovery:{c:'var(--green)',p:'▸ DISCOVER'}, proposal:{c:'var(--accent)',p:'▸ PROPOSE'}, vote:{c:'var(--cyan)',p:'▸ VOTE'}, consensus:{c:'var(--yellow)',p:'★ CONSENSUS'}, deployed:{c:'var(--green)',p:'◆ DEPLOYED'}, rejected:{c:'var(--red)',p:'✗ REJECTED'}, simulated:{c:'var(--orange)',p:'◇ SIMULATE'}, system:{c:'var(--dim)',p:'· SYSTEM'} };
+  el.innerHTML = events.map((ev,i) => {
+    const t = types[ev.type] || types.system;
+    const ac = AGENTS[ev.agent]?.color || 'var(--dim)';
+    const time = new Date(ev.timestamp).toISOString().split('T')[1]?.split('.')[0]||'';
+    return `<div class="event-line" style="${i===events.length-1?'animation:fadeIn .5s ease':''}">
+      <span style="color:var(--muted)">${time}</span>
+      <span style="color:${t.c};font-weight:600"> ${t.p}</span>
+      <span style="color:${ac}"> [${ev.agent}]</span>
+      <span> ${ev.message}</span>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderConviction(history) {
+  const el = document.getElementById('conviction-panel');
+  if (!history || history.length === 0) return;
+  const latest = history[history.length - 1];
+  const approved = latest.approved;
+  
+  el.innerHTML = `
+    <div class="conv-header">
+      <span style="font-size:11px;color:var(--muted);letter-spacing:1px">LATEST CONVICTION VOTE</span>
+      <span class="conv-badge ${approved?'approved':'rejected'}">${approved?'✓ APPROVED':'✗ REJECTED'}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <span class="conv-score">${latest.avgScore}</span>
+      <div style="flex:1">
+        <div class="conv-bar-bg"><div class="conv-bar" style="width:${latest.avgScore}%;background:linear-gradient(90deg,var(--accent),${approved?'var(--green)':'var(--red)'})"></div></div>
+        <div class="conv-scale"><span>0</span><span style="color:var(--yellow)">60 threshold</span><span>100</span></div>
+      </div>
+    </div>
+    ${Object.entries(latest.votes||{}).map(([n,v]) => {
+      const c = AGENTS[n]?.color || 'var(--dim)';
+      return `<div class="vote-row">
+        <span class="vote-name" style="color:${c}">${n}</span>
+        <div class="vote-bar-bg"><div class="vote-bar" style="width:${v.score}%;background:${c}"></div></div>
+        <span class="vote-score">${v.score}</span>
+      </div>`;
+    }).join('')}
+  `;
+  el.style.textAlign = 'left';
+  el.style.padding = '16px';
+  el.style.borderColor = approved ? 'var(--green)' : 'var(--red)';
+  el.style.boxShadow = `0 0 20px ${approved ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)'}`;
+}
+
+function renderAll(s) {
+  if (!s) return;
+  state = s;
+  if (s.prices) renderTicker(s.prices);
+  renderStats(s);
+  renderAgents(s);
+  renderEvents(s.recentEvents || []);
+  renderConviction(s.convictionHistory);
+}
+
+// ─── Demo State ───
+function demoState() {
+  const now = Date.now();
+  const prices = {
+    'BTC/USD': {price:98500+Math.random()*4000}, 'ETH/USD': {price:3200+Math.random()*300},
+    'FLR/USD': {price:.025+Math.random()*.005}, 'XRP/USD': {price:2.1+Math.random()*.3}, 'SOL/USD': {price:180+Math.random()*20}
+  };
+  return {
+    cycle:3, marketsCreated:2, marketsResolved:0, uptime:180000,
+    agents: {scout:{discoveries:4},architect:{designs:2},sentinel:{flagged:0}},
+    prices,
+    recentEvents: [
+      {id:0,type:'system',agent:'Orchestrator',message:'All agents initialized',timestamp:now-60000},
+      {id:1,type:'discovery',agent:'Scout',message:'BTC volatility spike — 2.3% move in 30min',timestamp:now-55000},
+      {id:2,type:'proposal',agent:'Architect',message:'Will BTC/USD be above $100,000 in 1 hour?',timestamp:now-50000},
+      {id:3,type:'vote',agent:'Scout',message:'Conviction: 84/100',timestamp:now-48000},
+      {id:4,type:'vote',agent:'Architect',message:'Conviction: 78/100',timestamp:now-46000},
+      {id:5,type:'vote',agent:'Oracle',message:'Conviction: 85/100 — FTSO feed confirmed reliable',timestamp:now-44000},
+      {id:6,type:'vote',agent:'MarketMaker',message:'Conviction: 72/100 — Fair pricing at 50/50',timestamp:now-42000},
+      {id:7,type:'vote',agent:'Sentinel',message:'Conviction: 75/100 — No risk flags',timestamp:now-40000},
+      {id:8,type:'consensus',agent:'Consensus',message:'APPROVED — Avg: 78.8/100',timestamp:now-38000},
+      {id:9,type:'deployed',agent:'Architect',message:'Market deployed: 0x7a3B...4f2E on Flare Coston2',timestamp:now-35000},
+      {id:10,type:'discovery',agent:'Scout',message:'ETH approaching $3,500 resistance',timestamp:now-10000},
+    ],
+    convictionHistory: [{
+      proposalId:'market-1', status:'approved', avgScore:78.8, voterCount:5, approved:true,
+      votes: { Scout:{score:84,reasoning:'High confidence'}, Architect:{score:78,reasoning:'Well-defined'}, Oracle:{score:85,reasoning:'FTSO reliable'}, MarketMaker:{score:72,reasoning:'Fair pricing'}, Sentinel:{score:75,reasoning:'No flags'} }
+    }]
+  };
+}
+
+// ─── Connect ───
+async function connect() {
+  try {
+    const res = await fetch(API+'/api/state');
+    if (res.ok) {
+      const data = await res.json();
+      liveMode = true;
+      document.getElementById('conn-status').innerHTML = '<span class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></span><span style="color:var(--green)">LIVE</span>';
+      renderAll(data);
+      // SSE
+      const es = new EventSource(API+'/events');
+      es.addEventListener('event', e => {
+        const ev = JSON.parse(e.data);
+        state.recentEvents.push(ev);
+        renderEvents(state.recentEvents);
+      });
+      es.addEventListener('cycle_complete', e => { renderAll(JSON.parse(e.data)); });
+      return;
+    }
+  } catch {}
+  
+  // Demo mode
+  document.getElementById('conn-status').innerHTML = '<span class="dot" style="background:var(--yellow);box-shadow:0 0 6px var(--yellow)"></span><span style="color:var(--yellow)">DEMO</span>';
+  renderAll(demoState());
+  // Simulate price ticks
+  setInterval(() => {
+    if (!state?.prices) return;
+    for (const [k,v] of Object.entries(state.prices)) {
+      if (v.price) v.price *= 1 + (Math.random()-.5)*.002;
+    }
+    renderTicker(state.prices);
+  }, 2000);
+}
+
+function triggerCycle() {
+  if (liveMode) { fetch(API+'/api/cycle',{method:'POST'}).catch(()=>{}); }
+  else {
+    const now = Date.now();
+    state.recentEvents.push({id:state.recentEvents.length, type:'discovery', agent:'Scout', message:'New volatility pattern detected on ETH/USD (confidence: 79%)', timestamp:now});
+    state.cycle++;
+    renderAll(state);
+  }
+}
+
+connect();
+</script>
+</body>
+</html>
