@@ -6,20 +6,20 @@ POLIS is a fully autonomous prediction market system where 5 AI agents collabora
 
 ## What It Does
 
-1. **Scout** monitors Flare FTSO v2 oracle feeds for price movements and anomalies
-2. **Architect** designs binary prediction markets from Scout's discoveries  
-3. **Oracle** reads live on-chain price data from Flare's decentralized FTSO
-4. **Market Maker** provides algorithmic liquidity using a constant-product AMM
-5. **Sentinel** assesses risk, enforces rate limits, and acts as a circuit breaker
+1. **Scout** monitors Flare FTSO v2 oracle feeds for price movements, round-number thresholds, and momentum shifts — then proposes a wide range of markets from conservative to speculative
+2. **Architect** evaluates technical feasibility, question quality, and deployment capacity
+3. **Oracle** reads live on-chain price data from Flare's decentralized FTSO and assesses data freshness and volatility
+4. **Market Maker** evaluates liquidity viability — strike distance, duration, portfolio concentration
+5. **Sentinel** assesses risk — rate limits, manipulation susceptibility, duration safety, asset concentration
 
-Every 12 seconds, the agents run a cycle: fetch prices → propose markets → vote with conviction scoring → deploy approved markets → provide liquidity.
+Every 12 seconds, agents run a cycle. Only markets scoring ≥75 average conviction pass — speculative and low-quality proposals get rejected.
 
 ## Architecture
 
 ```
-Flare FTSO v2 Oracle  →  Scout Agent  →  Conviction Consensus  →  Architect  →  PolisFactory (Flare Coston2)
-                                                                        ↓
-                                                                 PolisSettlement (Plasma Testnet)
+Flare FTSO v2 Oracle  →  Scout Agent  →  Conviction Consensus (≥75)  →  Architect  →  PolisFactory (Flare Coston2)
+                                              ↕ reject                        ↓
+                                         speculative / risky            PolisSettlement (Plasma Testnet)
 ```
 
 **Two-chain design:**
@@ -41,15 +41,28 @@ Flare FTSO v2 Oracle  →  Scout Agent  →  Conviction Consensus  →  Architec
 - **Plasma Integration:** Zero-fee settlement layer for stablecoin payouts
 - **Agent System:** Node.js, ethers.js, WebSocket real-time streaming
 - **Dashboard:** Vanilla HTML/CSS/JS, CoinGecko API fallback, live WebSocket connection
-- **Consensus:** Conviction voting with configurable threshold (≥60 to approve)
+- **Consensus:** Conviction voting with ≥75 threshold — speculative proposals get filtered out
 
 ## Smart Contracts
 
-**PolisFactory.sol** (325 lines) — Factory pattern for deploying prediction markets. Integrates with Flare Contract Registry to read FTSO v2 feeds. Manages agent registration, market creation, and FTSO-based resolution.
+**PolisFactory.sol** — Factory pattern for deploying prediction markets. Integrates with Flare Contract Registry to read FTSO v2 feeds. Manages agent registration, market creation, and FTSO-based resolution.
 
 **PolisMarket.sol** — Individual binary prediction market with constant-product AMM. Supports YES/NO token trading, FTSO-based auto-resolution, and fee collection.
 
-**PolisSettlement.sol** (246 lines) — Cross-chain settlement on Plasma. Handles individual and batch payouts in stablecoins with agent authorization.
+**PolisSettlement.sol** — Cross-chain settlement on Plasma. Handles individual and batch payouts in stablecoins with agent authorization.
+
+## Conviction Consensus
+
+Markets aren't created by a single agent — they require collective agreement. The Scout proposes a wide range of markets from conservative to speculative. Each voting agent scores based on genuinely different criteria:
+
+| Agent | What It Evaluates | Typical Range |
+|-------|------------------|---------------|
+| Architect | Feasibility, question quality, deployment capacity, scout confidence | 40–90 |
+| Oracle | Data freshness, feed availability, price volatility, duration vs staleness | 35–88 |
+| Market Maker | Strike distance from price, duration for fees, asset value, portfolio diversity | 25–85 |
+| Sentinel | Creation rate, manipulation risk, duration safety, asset concentration | 30–85 |
+
+Average score ≥75 → market approved. Below 75 → rejected. Speculative proposals like "Will BTC crash 15% in 30min?" or "Will FLR double in 4h?" get filtered out by the collective.
 
 ## Running Locally
 
@@ -61,19 +74,6 @@ node deploy.js    # Deploys to Flare Coston2 + Plasma Testnet
 node server.js    # Starts agent orchestrator + dashboard
 # Open http://localhost:3001
 ```
-
-## Conviction Consensus
-
-Markets aren't created by a single agent — they require collective agreement:
-
-| Agent | Role in Voting | Typical Score Range |
-|-------|---------------|-------------------|
-| Architect | Technical feasibility | 75–91 |
-| Oracle | Data confidence | 90–95 |
-| Market Maker | Liquidity viability | 50–60 |
-| Sentinel | Risk assessment | 35–80 |
-
-Average score ≥60 → market approved and deployed.
 
 ## License
 
